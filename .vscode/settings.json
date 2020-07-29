@@ -1,0 +1,9 @@
+{
+    "typescript.tsdk": "node_modules\\typescript\\lib",
+    "json.schemas": [
+        {
+            "fileMatch": ["/src/i18n/strings_*.json"],
+            "url": "./src/i18n/schema.json"
+        }
+    ]
+}
