@@ -7,8 +7,9 @@ import { split } from "apollo-link";
 import { HttpLink } from "apollo-link-http";
 import { WebSocketLink } from "apollo-link-ws";
 import { getMainDefinition } from "apollo-utilities";
+import { createUploadLink } from "apollo-upload-client";
 console.log(Environment());
-const httpLink = createHttpLink({
+const httpLink = createUploadLink({
     uri: Environment().serverUrl
 });
 

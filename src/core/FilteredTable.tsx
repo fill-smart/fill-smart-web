@@ -20,9 +20,9 @@ export const formatFilters = (formValues: { [key: string]: { type: string, value
 }
 
 export const formatTagValue = (expr: { from: any, to: any } | any): string => {
-    if (expr.from && !isNaN(parseFloat(expr.from))) {
+    if (expr?.from && !isNaN(parseFloat(expr.from))) {
         return `desde "${expr.from}" hasta "${expr.to}"`
-    } else if (expr.from && moment(expr.from).isValid()) {
+    } else if (expr?.from && moment(expr.from).isValid()) {
         return `desde "${moment(expr.from).format("DD-MM-YYYY")}" hasta "${moment(expr.to).format("DD-MM-YYYY")}"`
     } else {
         return expr
@@ -144,7 +144,7 @@ export const FilteredTable = ({
             {(tableState.filter as IAndFilterCriteria)?.and.filter(filter => (filter as IPropertyFilterCriterion).property != "deleted").length > 0 && <div style={{ marginBottom: "10px" }}>
                 <h4 style={{ marginBottom: 16 }}>Filtros aplicados:</h4>
                 {(tableState.filter as IAndFilterCriteria)?.and?.filter(filter => (filter as IPropertyFilterCriterion).property != "deleted").map((filter, i) => {
-                    return (<Tag key={(filter as IPropertyFilterCriterion).property + (filter as IPropertyFilterCriterion).value} closable onClose={() => removeFilter(i)} color="#108ee9">{'"' + columns.find(c => c.key == (filter as IPropertyFilterCriterion).property).title + '"'} {formatTagFilterType((filter as IPropertyFilterCriterion).type)} {formatTagValue((filter as IPropertyFilterCriterion).value)}</Tag>)
+                    return (<Tag key={(filter as IPropertyFilterCriterion).property + (filter as IPropertyFilterCriterion).value} closable onClose={() => removeFilter(i)} color="#108ee9">{'"' + columns.find(c => c.key == (filter as IPropertyFilterCriterion).property)?.title + '"'} {formatTagFilterType((filter as IPropertyFilterCriterion).type)} {formatTagValue((filter as IPropertyFilterCriterion).value)}</Tag>)
                 })}
             </div>}
             <TableWrapper

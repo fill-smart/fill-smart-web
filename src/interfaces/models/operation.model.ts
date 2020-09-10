@@ -22,5 +22,8 @@ export interface IOperationModel extends IBaseModel {
   exchangeSourceFuelType: string | null;
   paymentMethod: PaymentMethodsEnum | null;
   total: number;
+  targetCustomerFirstName: string;
+  targetCustomerLastName: string;
+  targetCustomerDocumentNumber: string;
   transactionId: string;
 }

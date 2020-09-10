@@ -62,4 +62,32 @@ const useOperationsTotalsByCustomer = (criteria?: {
   return { operationsTotalsByCustomer, loading, error, total };
 };
 
+export const useOperationsTotalsByCustomerLazy = (criteria?: {
+  pagination?: { current: number; pageSize: number };
+  sort?: Array<{ property: string; descending: boolean }>;
+  filter?: IFilterCriteria;
+}) => {
+  const max = criteria?.pagination ? criteria.pagination.pageSize : undefined;
+
+  const skip = criteria?.pagination
+    ? criteria.pagination.current * criteria.pagination.pageSize - criteria.pagination.pageSize : undefined;
+
+  const [execute, { data, loading, error }] = useLazyQuery<IOperationsTotalsByCustomerResult>(
+    LIST_OPERATIONS_TOTAL_BY_CUSTOMER_QUERY,
+    {
+      variables: {
+        max,
+        skip,
+        filter: JSON.stringify(criteria?.filter),
+        sort: JSON.stringify(criteria?.sort),
+      },
+    }
+  );
+  
+  const operationsTotalsByCustomer = data?.operationTotalsByCustomer.result;
+  const total = data?.operationTotalsByCustomer.pageInfo.total;
+
+  return { execute, operationsTotalsByCustomer, loading, error, total };
+};
+
 export default useOperationsTotalsByCustomer;

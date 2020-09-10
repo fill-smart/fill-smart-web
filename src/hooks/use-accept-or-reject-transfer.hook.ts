@@ -4,13 +4,18 @@ import { SecurityContext } from "./../contexts/security.context";
 import { useContext, useEffect } from "react";
 import { message } from "antd";
 import usePendingTransferWithdrawals from "./use-pending-transfers.hook";
+export interface IConfirTransactionModel {
+    code: string;
+    voucher: { fileList: Array<{ thumbUrl: string, originFileObj: any }>, file: any }
+}
 
 const ACCEPT_TRANSFER_WITHDRAWAL_MUTATION = gql`
     mutation acceptTransferWithdrawal(
         $id: ID!
         $code: String!
+        $fileList: [Upload!]!
         ) {
-        acceptTransferWithdrawal(data: { id: $id, code: $code }) {
+        acceptTransferWithdrawal(data: { id: $id, code: $code, fileList: $fileList }) {
             ok
         }
     }
@@ -23,31 +28,33 @@ const REJECT_TRANSFER_WITHDRAWAL_MUTATION = gql`
         }
     }
 `;
-const useAccept = () => {
+const useAccept = (onSuccess: () => void) => {
     const [execute, { data, error, loading }] = useMutation<{
         acceptTransferWithdrawal: {
             ok: boolean;
         };
     }>(ACCEPT_TRANSFER_WITHDRAWAL_MUTATION);
 
-    const authorize = (id: string, code: string) => {
+    const authorize = (id: string, code: string, fileList: any) => {
         execute({
             variables: {
                 id: id,
                 code: code,
+                fileList: fileList,
             }
         });
     };
     useEffect(() => {
         if (data?.acceptTransferWithdrawal.ok) {
             message.success("Se autorizo con exito");
+            onSuccess();
         }
     }, [data?.acceptTransferWithdrawal.ok]);
 
     return { authorize };
 };
 
-const useReject = () => {
+const useReject = (onSuccess: () => void) => {
     const [execute, { data, error, loading }] = useMutation<{
         rejectTransferWithdrawal: {
             ok: boolean;
@@ -64,15 +71,16 @@ const useReject = () => {
     useEffect(() => {
         if (data?.rejectTransferWithdrawal.ok) {
             message.warn("Se denego la autorizacion con exito");
+            onSuccess()
         }
     }, [data?.rejectTransferWithdrawal.ok]);
 
     return { reject };
 };
 
-const useAcceptOrRejectTransferWithdrawal = () => {
-    const acceptMutation = useAccept();
-    const rejectMutation = useReject();
+const useAcceptOrRejectTransferWithdrawal = (onSuccess: () => void) => {
+    const acceptMutation = useAccept(onSuccess);
+    const rejectMutation = useReject(onSuccess);
 
     return {
         accept: acceptMutation.authorize,

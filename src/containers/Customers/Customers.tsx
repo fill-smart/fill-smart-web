@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { LayoutContentWrapper } from "../../components/utility/layoutWrapper.style";
 import PageHeader from "../../components/utility/pageHeader";
 import { Row, Col, Tooltip } from "antd";
@@ -8,10 +8,10 @@ import { TableViews } from "../Tables/AntTables/AntTables";
 import IsoWidgetsWrapper from "../Widgets/WidgetsWrapper";
 import IsoWidgetBox from "../Widgets/WidgetBox";
 import Loader from "../../components/utility/loader";
-import useCustomers from "../../hooks/use-customers.hook";
+import useCustomers, { useCustomersLazy } from "../../hooks/use-customers.hook";
 import { ICustomerModel } from "../../interfaces/models/customer.model";
 import { DateUtils } from "@silentium-apps/fill-smart-common";
-import { ActionWrapper } from "../Stations/Stations.styles";
+import { ActionWrapper, ButtonWrapper, ButtonHolders, ActionBtn } from "../Stations/Stations.styles";
 import { CustomerEdit } from "./CustomersEdit";
 import CustomerDocument from "./CustomerDocument";
 import { QueryCriteria, FilteredTable } from "../../core/FilteredTable";
@@ -20,6 +20,10 @@ import { DateFilter, createTextFilter } from "../../components/Tables/Filters";
 import { Link } from "react-router-dom";
 import { PRIVATE_ROUTE } from "../../route.constants";
 import { SecurityContext, RolesEnum } from "../../contexts/security.context";
+import FileSaver from "file-saver";
+import moment from "moment";
+import Excel from "exceljs";
+
 
 const { rowStyle, colStyle } = basicStyle;
 
@@ -33,6 +37,9 @@ type CustomerViewModel = Pick<
     | "born"
     | "phone"
     | "user"
+    | "cbu"
+    | "cbuAlias"
+    | "mercadopagoAccount"
 >;
 
 const Customers = () => {
@@ -50,10 +57,81 @@ const Customers = () => {
         sort: [],
         filter: undefined
     })
+    const { pagination, ...tableCriteriaWithoutPagination } = tableCriteria;
+    const allCustomersHook = useCustomersLazy(tableCriteriaWithoutPagination);
+    const [generateExcelClicked, setGenerateExcelClicked] = useState<boolean>(false);
     const [otherFiltersRaw, setOtherFiltersRaw] = useState<any>();
     const [otherFilters, setOtherFilters] = useState<IAndFilterCriteria | undefined>()
     /*End Criteria*/
     const { customers, loading, total } = useCustomers(tableCriteria);
+
+    const onGenerateExcelClicked = () => {
+        setGenerateExcelClicked(true);
+        if (allCustomersHook.customers) {
+            generateExcel()
+        }
+        else {
+            allCustomersHook.execute();
+        }
+    }
+
+    useEffect(() => {
+        if (allCustomersHook.customers && generateExcelClicked) {
+            generateExcel();
+        }
+    }, [allCustomersHook.customers]);
+
+    const generateExcel = async () => {
+        setGenerateExcelClicked(false);
+        const workbook = new Excel.Workbook();
+        const sheet = workbook.addWorksheet('Clientes');
+
+        sheet.columns = [
+            { header: 'Documento', key: 'documentNumber' },
+            { header: 'Nombre', key: 'firstName' },
+            { header: 'Apellido', key: 'lastName' },
+            { header: 'Fecha de Nacimiento', key: 'born' },
+            { header: 'Telefono', key: 'phone' },
+            { header: 'Email', key: 'email' },
+            { header: 'Fecha de Registro', key: 'created' },
+            { header: 'CBU', key: 'cbu' },
+            { header: 'Alias', key: 'cbuAlias' },
+            { header: 'Mercado Pago', key: 'mercadopagoAccount' },
+        ];
+
+        sheet.addRows(allCustomersHook.customers!.map(c => [
+            c.documentNumber,
+            c.firstName,
+            c.lastName,
+            DateUtils.format(c?.born, "DD/MM/YYYY"),
+            c?.phone,
+            c?.user.username,
+            DateUtils.format(c?.created, "DD/MM/YYYY hh:mm"),
+            c.cbu,
+            c.cbuAlias,
+            c.mercadopagoAccount,
+        ]));
+
+        sheet.columns.forEach(function (column) {
+            var dataMax = 0;
+            column.eachCell!(function (cell) {
+                if (cell.value) {
+                    var columnLength = cell.value.toString().length;
+                    if (columnLength > dataMax) {
+                        dataMax = columnLength;
+                    }
+                }
+            })
+            column.width = dataMax + 5;
+        });
+
+        const fileType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        await workbook.xlsx.writeBuffer().then(data => {
+            const blob = new Blob([data], { type: fileType });
+            FileSaver.saveAs(blob, "fillsmart_clientes_" + moment().format("DD-MM-YYYY") + ".xlsx");
+        });;
+    };
+
     const columns = [
         {
             title: "Documento",
@@ -91,12 +169,35 @@ const Customers = () => {
             key: "phone",
             render: (c: CustomerViewModel) => TextCell(c?.phone),
             filterDropdown: createTextFilter(FilterTypesEnum.Like),
+            sorter: true
         },
         {
             title: "Email",
-            key: "email",
+            key: "user.username",
             render: (c: CustomerViewModel) => TextCell(c?.user.username),
             filterDropdown: createTextFilter(FilterTypesEnum.Like),
+            sorter: true
+        },
+        {
+            title: "CBU",
+            key: "cbu",
+            render: (c: CustomerViewModel) => TextCell(c?.cbu),
+            filterDropdown: createTextFilter(FilterTypesEnum.Like),
+            sorter: true
+        },
+        {
+            title: "Alias",
+            key: "cbuAlias",
+            render: (c: CustomerViewModel) => TextCell(c?.cbuAlias),
+            filterDropdown: createTextFilter(FilterTypesEnum.Like),
+            sorter: true
+        },
+        {
+            title: "MercadoPago",
+            key: "mercadopagoAccount",
+            render: (c: CustomerViewModel) => TextCell(c?.mercadopagoAccount),
+            filterDropdown: createTextFilter(FilterTypesEnum.Like),
+            sorter: true
         },
         {
             title: "Fecha de Registro",
@@ -104,6 +205,7 @@ const Customers = () => {
             render: (c: CustomerViewModel) =>
                 TextCell(DateUtils.format(c?.created, "DD/MM/YYYY hh:mm")),
             filterDropdown: DateFilter,
+            sorter: true
         },
         {
             title: "",
@@ -121,7 +223,9 @@ const Customers = () => {
         {
             title: "",
             key: "action",
-            width: "5%",
+            // width: "5%",
+            fixed: "right",
+            width: 100,
             className: "noWrapCell",
             render: (c: CustomerViewModel) => {
                 return (
@@ -188,6 +292,18 @@ const Customers = () => {
                 <Col lg={24} md={24} sm={24} xs={24} style={colStyle}>
                     <IsoWidgetsWrapper>
                         <IsoWidgetBox>
+                            <ButtonWrapper>
+                                <div></div>
+                                <ButtonHolders>
+                                    <ActionBtn
+                                        type="primary"
+                                        onClick={onGenerateExcelClicked}
+                                        loading={generateExcelClicked}
+                                    >
+                                        Descargar planilla
+                                    </ActionBtn>
+                                </ButtonHolders>
+                            </ButtonWrapper>
                             {/* TABLE */}
                             <FilteredTable
                                 columns={columns}

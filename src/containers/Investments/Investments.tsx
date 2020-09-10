@@ -30,6 +30,10 @@ import styled from "styled-components";
 import moment from "moment";
 import { PickADate } from "./PickADate";
 import useOperations from "../../hooks/use-operations.hook";
+import FileSaver from "file-saver";
+import Excel from "exceljs";
+
+
 const DateButton = styled(Button)`
     margin:10px;
 `
@@ -102,6 +106,110 @@ const Investments = () => {
     const quotesHook = useQuotes();
     const fuelTypesHook = useFuelTypes();
     const operationsHook = useOperations();
+
+    const generateMoneyOfOperationsByProductTypeExcel = async () => {    
+        const workbook = new Excel.Workbook();
+        const sheet = workbook.addWorksheet('Litros Comprometidos por Tipo de Combustible');
+        
+        sheet.columns = [
+            { header: 'Tipo de Combustible', key: 'fuelType' },
+            { header: 'Litros', key: 'litres' },
+            { header: 'Precio Lt.', key: 'litrePrice' },
+            { header: 'Subtotal', key: 'subtotal' },
+        ];
+
+        sheet.addRows(moneyOfOperationsByProductType!.map(o => [
+            o.type.name, 
+            o.litres, 
+            "$" + o.type.currentPrice.price.toLocaleString(undefined, {
+                maximumFractionDigits: 2,
+                minimumFractionDigits: 2
+            }),
+            "$" + o.value.toLocaleString(undefined, {
+                maximumFractionDigits: 2,
+                minimumFractionDigits: 2
+            })
+        ]));
+
+        sheet.columns.forEach(function(column){
+            var dataMax = 0;
+            column.eachCell!(function(cell){
+                if (cell.value) {
+                    var columnLength = cell.value.toString().length;	
+                    if (columnLength > dataMax) {
+                        dataMax = columnLength;
+                    }
+                }
+            })
+            column.width = dataMax + 5;
+        });
+
+        const fileType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        await workbook.xlsx.writeBuffer().then(data => {
+            const blob = new Blob([data], { type: fileType }); 
+            FileSaver.saveAs(blob, "fillsmart_litros_comprometidos_por_tipo_de_combustible_" + moment().format("DD-MM-YYYY") + ".xlsx");
+            });;
+    };
+
+    const generateInvestmentsExcel = async () => {    
+        const workbook = new Excel.Workbook();
+        const sheet = workbook.addWorksheet('Inversiones');
+        
+        sheet.columns = [
+            { header: 'Tipo de Movimiento', key: 'movementType' },
+            { header: 'Tipo de Inversion', key: 'investmentType' },
+            { header: 'Fecha', key: 'stamp' },
+            { header: 'Vencimiento', key: 'dueDate' },
+            { header: 'Cotizacion', key: 'quote' },
+            { header: 'Cantidad', key: 'price' },
+            { header: 'Subtotal', key: 'total' },
+        ];
+
+        sheet.addRows(investments!.map(o => [
+            o?.movementType === InvestmentMovementTypeEnum.Purchase ? "Compra" : "Venta",
+            o?.investmentType.name, 
+            moment(o?.stamp).format("DD/MM/YYYY HH:mm"),
+            moment(o?.dueDate).format("DD/MM/YYYY HH:mm"),
+            `${
+                o.quote.investmentType.name
+                } - ${o.quote.price.toLocaleString(undefined, {
+                    maximumFractionDigits: 2,
+                    minimumFractionDigits: 2
+            })}`,
+            o.ammount.toLocaleString(undefined, {
+                maximumFractionDigits: 2,
+                minimumFractionDigits: 2
+            }),
+            o.movementType === InvestmentMovementTypeEnum.Sale ? "-" :
+            "$" +
+            (o.quote.arsEquivalent * o.ammount).toLocaleString(
+                undefined,
+                {
+                    maximumFractionDigits: 2,
+                    minimumFractionDigits: 2
+                }
+            )
+        ]));
+
+        sheet.columns.forEach(function(column){
+            var dataMax = 0;
+            column.eachCell!(function(cell){
+                if (cell.value) {
+                    var columnLength = cell.value.toString().length;	
+                    if (columnLength > dataMax) {
+                        dataMax = columnLength;
+                    }
+                }
+            })
+            column.width = dataMax + 5;
+        });
+
+        const fileType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        await workbook.xlsx.writeBuffer().then(data => {
+            const blob = new Blob([data], { type: fileType }); 
+            FileSaver.saveAs(blob, "fillsmart_inversiones_" + moment().format("DD-MM-YYYY") + ".xlsx");
+            });;
+    };
 
     const investmentColumns = [
         {
@@ -306,7 +414,6 @@ const Investments = () => {
         (a, c) => a + c.value,
         0
     );
-    console.log("detail per fuel type ", moneyOfOperationsByProductType);
 
     return (
         <LayoutContentWrapper>
@@ -375,6 +482,17 @@ const Investments = () => {
                 <Col lg={24} md={24} sm={24} xs={24} style={colStyle}>
                     <IsoWidgetsWrapper>
                         <IsoWidgetBox>
+                            <ButtonWrapper>
+                                <div></div>
+                                <ButtonHolders>
+                                    <ActionBtn
+                                        type="primary"
+                                        onClick={generateMoneyOfOperationsByProductTypeExcel}
+                                    >
+                                        Descargar planilla
+                                    </ActionBtn>
+                                </ButtonHolders>
+                            </ButtonWrapper>
                             <TableViews.SimpleView
                                 tableInfo={{
                                     title: "Simple Table",
@@ -405,6 +523,12 @@ const Investments = () => {
                             <ButtonWrapper>
                                 <div></div>
                                 <ButtonHolders>
+                                    <ActionBtn
+                                        type="primary"
+                                        onClick={generateInvestmentsExcel}
+                                    >
+                                        Descargar planilla
+                                    </ActionBtn>
                                     <ActionBtn
                                         type="primary"
                                         onClick={() => create()}

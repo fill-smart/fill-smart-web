@@ -1,5 +1,5 @@
 import { gql } from "apollo-boost";
-import { useQuery } from "@apollo/react-hooks";
+import { useQuery, useLazyQuery } from "@apollo/react-hooks";
 import { IFilterCriteria } from "../core/filters";
 
 export interface ICustomersResult {
@@ -16,7 +16,7 @@ export interface ICustomersResult {
       born: Date;
       phone: string;
       user: {
-        email: string;
+        username: string;
       };
       cbu: string;
       cbuAlias: string;
@@ -82,5 +82,37 @@ const useCustomers = (criteria?: {
   const customers = data?.customers.result;
   return { customers, loading, refetch, total };
 };
+
+export const useCustomersLazy = (
+  criteria?: {
+    pagination?: { current: number; pageSize: number };
+    sort?: Array<{ property: string; descending: boolean }>;
+    filter?: IFilterCriteria;
+  }
+) => {
+  const max = criteria?.pagination ? criteria.pagination.pageSize : undefined;
+  const skip = criteria?.pagination
+    ? criteria.pagination.current * criteria.pagination.pageSize -
+      criteria.pagination.pageSize
+    : undefined;
+  const [execute, { data, loading, error }] = useLazyQuery<ICustomersResult>(
+    LIST_CUSTOMERS_QUERY,
+    {
+      variables: {
+        max,
+        skip,
+        sort: JSON.stringify(criteria?.sort),
+        filter: JSON.stringify(criteria?.filter),
+      },
+    }
+  );
+
+  if (error) {
+    throw error;
+  }
+  const customers = data?.customers.result;
+
+  return { execute, customers, loading, error };
+}
 
 export default useCustomers;

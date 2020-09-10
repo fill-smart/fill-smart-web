@@ -146,7 +146,6 @@ const DashboardHomePage = () => {
     const [security, _] = useContext(SecurityContext);
 
     const role = security.user!.roles[0].name;
-    console.log("role: ", role);
     switch (role) {
         case RolesEnum.Admin:
             return <AdminHome />;
@@ -379,7 +378,6 @@ export const GasStationAdminHome = () => {
                 bgColor: "#7266BA"
             }
         ];
-    console.log("OPERACIONES", operationsHook.operations)
     const operationsByType = [
         {
             id: 1,
@@ -410,7 +408,6 @@ export const GasStationAdminHome = () => {
             operation => operation.fuelTypeId === Number(type.id)
         )
     }));
-    console.log("BY PRODUCT TYPE", operationsByProductType)
 
     const ammountOfOperationsByType = operationsByType?.map(operation => ({
         type: operation.type,
@@ -638,10 +635,8 @@ export const GasStationSellerHome = () => {
 
     const [modalDocumentOpened, setModalDocumentOpened] = useState(false);
     const showDocument = (c: CustomerViewModel) => {
-        console.log("customer:", c);
         setModalDocumentOpened(true);
         setShowingDniCustomer(c);
-        console.log(modalDocumentOpened, showingDniCustomer);
     };
 
     return (
@@ -727,8 +722,6 @@ export const AdminHome = () => {
             operation => operation.operationTypeId === type.id
         )
     }));
-    console.log("ALL", operationsHook.operations)
-    console.log("BY TYPE", operationsByType)
 
     const walletsByFuelType = fuelTypesHook.fuelTypes?.map(fuelType => ({
         fuelType,
@@ -750,7 +743,6 @@ export const AdminHome = () => {
             operation => operation.fuelTypeId === Number(type.id)
         )
     }));
-    console.log("BY PRODUCT TYPE", operationsByProductType)
     const litresOfOperationsByProductType = operationsByProductType?.map(
         operation => ({
             type: operation.type,

@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { LayoutContentWrapper } from "../../components/utility/layoutWrapper.style";
 import PageHeader from "../../components/utility/pageHeader";
 import { Row, Col, Tooltip } from "antd";
@@ -11,7 +11,7 @@ import IsoWidgetBox from "../Widgets/WidgetBox";
 import { DateUtils } from "@silentium-apps/fill-smart-common";
 import loader from "../../components/utility/loader";
 import LoaderComponent from "../../components/utility/loader.style";
-import { ActionWrapper, ButtonWrapper } from "../Stations/Stations.styles";
+import { ActionWrapper, ButtonWrapper, ButtonHolders, ActionBtn } from "../Stations/Stations.styles";
 import useParameters from "../../hooks/use-parameters.hook";
 import moment from "moment";
 import { IOperationModel } from "../../interfaces/models/operation.model";
@@ -20,13 +20,13 @@ import { IAndFilterCriteria, FilterTypesEnum } from "../../core/filters";
 import { QueryCriteria, FilteredTable } from "../../core/FilteredTable";
 import { createTextFilter, DateFilter, NumberFilter } from "../../components/Tables/Filters";
 import { useParams, useHistory } from "react-router-dom";
-import useOperationsByCustomers from "../../hooks/use-operations-by-customer.hook";
+import useOperationsByCustomers, { useOperationsByCustomersLazy } from "../../hooks/use-operations-by-customer.hook";
 import BackButton from "../../components/uielements/BackButton";
+import FileSaver from "file-saver";
+import Excel from "exceljs";
+
 
 const { rowStyle, colStyle } = basicStyle;
-
-
-
 
 const CustomerMovements = () => {
     const { documentNumber } = useParams();
@@ -34,7 +34,6 @@ const CustomerMovements = () => {
     if (!documentNumber) {
         throw "No customer document number";
     }
-
 
     /*Criteria*/
     const [tableCriteria, setTableCriteria] = useState<QueryCriteria>({
@@ -45,6 +44,9 @@ const CustomerMovements = () => {
         sort: [],
         filter: undefined
     })
+    const { pagination, ...tableCriteriaWithoutPagination } = tableCriteria;
+    const allOperationsHook = useOperationsByCustomersLazy(Number(documentNumber), tableCriteriaWithoutPagination);
+    const [generateExcelClicked, setGenerateExcelClicked] = useState<boolean>(false);
     const [otherFiltersRaw, setOtherFiltersRaw] = useState<any>();
     const [otherFilters, setOtherFilters] = useState<IAndFilterCriteria | undefined>()
     /*End Criteria*/
@@ -58,7 +60,80 @@ const CustomerMovements = () => {
 
     const loading = operationsHook.loading || gracePeriodHook.loading;
 
-    const operations = operationsHook.operations;
+    const onGenerateExcelClicked = () => {
+        setGenerateExcelClicked(true);
+        if (allOperationsHook.operations) {
+            generateExcel()
+        }
+        else {
+            allOperationsHook.execute();
+        }
+    }
+
+    useEffect(() => {
+        if (allOperationsHook.operations && generateExcelClicked) {
+            generateExcel();
+        }
+    }, [allOperationsHook.operations]);
+
+    const generateExcel = async () => {
+        setGenerateExcelClicked(false);
+        const workbook = new Excel.Workbook();
+        const sheet = workbook.addWorksheet('Operaciones por Cliente');
+
+        sheet.columns = [
+            { header: 'Nº de Transaccion', key: 'id' },
+            { header: 'Tipo', key: 'operationTypeName' },
+            { header: 'Fecha y Hora', key: 'stamp' },
+            { header: 'Tipo de Combustible', key: 'fuelTypeName' },
+            { header: 'Litros', key: 'litres' },
+            { header: 'Precio', key: 'fuelPrice' },
+            { header: 'Estación', key: 'gasStationName' },
+            { header: 'Surtidor', key: 'pumpExternalId' },
+            { header: 'Fecha de Carencia', key: 'grace' },
+        ];
+
+        sheet.addRows(allOperationsHook.operations!.map(o => [
+            o.id,
+            o.operationTypeName,
+            DateUtils.format(o.stamp, "DD/MM/YYYY HH:mm"),
+            o.fuelTypeName,
+            o.litres ? o.litres.toLocaleString("es-ar", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2
+            }) : "",
+            o.fuelPrice ? "$ " + o.fuelPrice.toLocaleString("es-ar", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }) : "",
+            o.gasStationName,
+            o.pumpExternalId ?? "-",
+            o.operationTypeName == "Compra de Combustible"
+                ? moment(o.stamp)
+                    .add(gracePeriodHook.gracePeriod, "days")
+                    .format("DD/MM/YYYY")
+                : "-",
+        ]));
+
+        sheet.columns.forEach(function (column) {
+            var dataMax = 0;
+            column.eachCell!(function (cell) {
+                if (cell.value) {
+                    var columnLength = cell.value.toString().length;
+                    if (columnLength > dataMax) {
+                        dataMax = columnLength;
+                    }
+                }
+            })
+            column.width = dataMax + 5;
+        });
+
+        const fileType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        await workbook.xlsx.writeBuffer().then(data => {
+            const blob = new Blob([data], { type: fileType });
+            FileSaver.saveAs(blob, "fillsmart_operaciones_" + allOperationsHook.operations![0].customerFirstName + "_" + allOperationsHook.operations![0].customerLastName + "_" + moment().format("DD-MM-YYYY") + ".xlsx");
+        });;
+    };
 
     const columns = [
         {
@@ -97,10 +172,10 @@ const CustomerMovements = () => {
             align: "right",
             render: (o: IOperationModel) =>
                 TextCell(
-                    o.litres.toLocaleString(undefined, {
+                    o.litres ? o.litres.toLocaleString(undefined, {
                         minimumFractionDigits: 0,
                         maximumFractionDigits: 2
-                    })
+                    }) : "-"
                 ),
             filterDropdown: NumberFilter,
             sorter: true
@@ -110,11 +185,12 @@ const CustomerMovements = () => {
             key: "fuelPrice",
             align: "right",
             render: (o: IOperationModel) =>
-                TextCell("$ " +
-                    o.fuelPrice.toLocaleString(undefined, {
+                TextCell(
+                    o.fuelPrice ? "$ " + o.fuelPrice.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
-                    })
+                    }) :
+                        "-"
                 ),
             filterDropdown: NumberFilter,
             sorter: true
@@ -127,30 +203,6 @@ const CustomerMovements = () => {
             filterDropdown: createTextFilter(FilterTypesEnum.Like),
             sorter: true
         },
-        // {
-        //     title: "Documento",
-        //     key: "customerDocumentNumber",
-        //     render: (o: IOperationModel) =>
-        //         TextCell(o.customerDocumentNumber),
-        //     filterDropdown: createTextFilter(FilterTypesEnum.Like),
-        //     sorter: true
-        // },
-        // {
-        //     title: "Nombre",
-        //     key: "customerFirstName",
-        //     render: (o: IOperationModel) =>
-        //         TextCell(o.customerFirstName),
-        //     filterDropdown: createTextFilter(FilterTypesEnum.Like),
-        //     sorter: true
-        // },
-        // {
-        //     title: "Apellido",
-        //     key: "customerLastName",
-        //     render: (o: IOperationModel) =>
-        //         TextCell(o.customerLastName),
-        //     filterDropdown: createTextFilter(FilterTypesEnum.Like),
-        //     sorter: true
-        // },
         {
             title: "Surtidor",
             key: "pump",
@@ -204,6 +256,15 @@ const CustomerMovements = () => {
                                 <BackButton
                                     onClick={goBack}
                                 />
+                                <ButtonHolders>
+                                    <ActionBtn
+                                        type="primary"
+                                        onClick={onGenerateExcelClicked}
+                                        loading={generateExcelClicked}
+                                    >
+                                        Descargar planilla
+                                    </ActionBtn>
+                                </ButtonHolders>
                             </ButtonWrapper>
                             {/* TABLE */}
                             <FilteredTable

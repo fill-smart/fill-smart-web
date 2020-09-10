@@ -16,7 +16,7 @@ import {
 } from "./Stations.styles";
 import Popconfirms from "../../components/Feedback/Popconfirm";
 import useGasStations, {
-    IGasStationsResult
+    IGasStationsResult, useGasStationsLazy
 } from "../../hooks/use-gas-stations.hook";
 import Loader from "../../components/utility/loader";
 import { Link } from "react-router-dom";
@@ -27,6 +27,9 @@ import moment from "moment";
 import { QueryCriteria, FilteredTable } from "../../core/FilteredTable";
 import { FilterTypesEnum, IAndFilterCriteria } from "../../core/filters";
 import { createTextFilter, DateFilter } from "../../components/Tables/Filters";
+import FileSaver from "file-saver";
+import Excel from "exceljs";
+
 
 const { rowStyle, colStyle } = basicStyle;
 
@@ -39,9 +42,67 @@ const Stations = () => {
         sort: [],
         filter: undefined
     })
+    const {pagination, ...tableCriteriaWithoutPagination} = tableCriteria;
+    const allStationsHook = useGasStationsLazy(tableCriteriaWithoutPagination);
+    const [generateExcelClicked, setGenerateExcelClicked] = useState<boolean>(false);
     const [otherFiltersRaw, setOtherFiltersRaw] = useState<any>();
     const [otherFilters, setOtherFilters] = useState<IAndFilterCriteria | undefined>()
     const { gasStations, loading, total } = useGasStations(tableCriteria);
+
+    const onGenerateExcelClicked = () => {
+        setGenerateExcelClicked(true);
+        if (allStationsHook.gasStations){
+            generateExcel()
+        }
+        else {
+            allStationsHook.execute();
+        }
+    }
+
+    useEffect(() => {
+        if (allStationsHook.gasStations && generateExcelClicked) {
+            generateExcel();
+        }
+    }, [allStationsHook.gasStations]);
+
+    const generateExcel = async () => {
+        setGenerateExcelClicked(false);    
+        const workbook = new Excel.Workbook();
+        const sheet = workbook.addWorksheet('Estaciones');
+        
+        sheet.columns = [
+            { header: 'Nombre', key: 'name' },
+            { header: 'Dirección', key: 'address' },
+            { header: 'Fecha Creación', key: 'created' },
+            { header: 'Total Mangueras', key: 'pumpCount' },
+        ];
+
+        sheet.addRows(allStationsHook.gasStations!.map(o => [
+            o.name, 
+            o.address, 
+            moment(o?.created).format("DD/MM/YYYY"),
+            o.pumpsCount,
+        ]));
+
+        sheet.columns.forEach(function(column){
+            var dataMax = 0;
+            column.eachCell!(function(cell){
+                if (cell.value) {
+                    var columnLength = cell.value.toString().length;	
+                    if (columnLength > dataMax) {
+                        dataMax = columnLength;
+                    }
+                }
+            })
+            column.width = dataMax + 5;
+        });
+
+        const fileType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        await workbook.xlsx.writeBuffer().then(data => {
+            const blob = new Blob([data], { type: fileType }); 
+            FileSaver.saveAs(blob, "fillsmart_estaciones_" + moment().format("DD-MM-YYYY") + ".xlsx");
+            });;
+    };
 
     const columns = [
         {
@@ -170,6 +231,13 @@ const Stations = () => {
                             <ButtonWrapper>
                                 <div></div>
                                 <ButtonHolders>
+                                    <ActionBtn
+                                        type="primary"
+                                        onClick={onGenerateExcelClicked}
+                                        loading={generateExcelClicked}
+                                    >
+                                        Descargar planilla
+                                    </ActionBtn>
                                     <ActionBtn
                                         type="primary"
                                         onClick={() => createStation()}

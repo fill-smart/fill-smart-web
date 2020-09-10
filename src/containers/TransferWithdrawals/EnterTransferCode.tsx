@@ -10,20 +10,22 @@ export const EnterTransferCode = ({
 }: {
     opened?: boolean;
     onClose: () => void;
-    onFinished: (code: string) => void;
+    onFinished: (c) => void;
 }) => {
     const formRef = opened ? createRef<any>() : undefined;
     return (
         <Modal
-            width={400}
+            width={500}
             visible={opened}
-            title={"Ingrese el número de transferencia"}
+            title={"Confirmar transferencia"}
             footer={null}
             onCancel={onClose}
         >
             {opened && (
                 <EnterTransferCodeForm
-                    onSubmit={(c: { code: string }) => onFinished(c.code)}
+                    onSubmit={(c) =>
+                        onFinished(c)
+                    }
                     wrappedComponentRef={formRef}
                 />
             )}

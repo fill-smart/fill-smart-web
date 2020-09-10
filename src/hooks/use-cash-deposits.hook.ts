@@ -5,7 +5,7 @@ import {
 } from "./../core/filters";
 import { ICashDepositModel } from "./../interfaces/models/cash-deposit.model";
 import { gql } from "apollo-boost";
-import { useQuery } from "@apollo/react-hooks";
+import { useQuery, useLazyQuery } from "@apollo/react-hooks";
 import { IGasStationModel } from "../interfaces/models/gas-station.model";
 import { RolesEnum, SecurityContext } from "../contexts/security.context";
 import { useContext } from "react";
@@ -103,5 +103,61 @@ const useCashDeposits = (
   const cashDeposits = data?.cashDeposits.result;
   return { cashDeposits, loading, refetch, total };
 };
+
+export const useCashDepositsLazy = (
+  gasStationId?: string,
+  criteria?: {
+    pagination?: { current: number; pageSize: number };
+    sort?: Array<{ property: string; descending: boolean }>;
+    filter?: IFilterCriteria;
+  }
+) => {
+  const max = criteria?.pagination ? criteria.pagination.pageSize : undefined;
+  const skip = criteria?.pagination
+    ? criteria.pagination.current * criteria.pagination.pageSize -
+      criteria.pagination.pageSize
+    : undefined;
+  let filter: { and: {}[] } = {
+    and: [],
+  };
+
+  if (gasStationId) {
+    filter.and.push({
+      or: [
+        {
+          property: "gasStation.id",
+          type: "eq",
+          value: Number(gasStationId),
+        },
+      ],
+    });
+
+    if (
+      criteria &&
+      criteria.filter &&
+      (criteria.filter as IAndFilterCriteria).and
+    ) {
+      (criteria.filter as IAndFilterCriteria).and.map((f) =>
+        filter.and.push(f)
+      );
+    }
+  }
+
+  const [execute, { data, loading, error }] = useLazyQuery<ICashDepositResult>(
+    LIST_DEPOSITS_QUERY,
+    {
+      variables: {
+        filter: JSON.stringify(filter),
+        sort: criteria?.sort ? JSON.stringify(criteria?.sort) : undefined,
+        max,
+        skip,
+      }
+    }
+  );
+
+  const cashDeposits = data?.cashDeposits.result;
+
+  return { execute, cashDeposits, loading, error };
+}
 
 export default useCashDeposits;
