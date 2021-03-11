@@ -1,8 +1,9 @@
 module.exports = {
     client: {
-      service: {
-        name: "my-graphql-app",
-        url: "http://localhost:4000/graphql"
-      }
-    }
+      service: 'fillsmart-dev',
+      skipSSLValidation: true,
+      excludes: ['node_modules/**/*'],
+      includes: ['src/hooks/**/*.{ts,gql,tsx,js,jsx,graphql}'],
+    },
   };
+  

@@ -1,0 +1,10 @@
+{
+    "hello": "Hello {0}",
+    "productPrice": "The price of {0} is {1} {2}",
+    "noParams": "This string requires no params",
+    "forgotPassword": "Forgot Password",
+    "rememberMe": "Remember Me",
+    "signIn": "Sign In",
+    "username": "Username",
+    "password": "Password"
+}

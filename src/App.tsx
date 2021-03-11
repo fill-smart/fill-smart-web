@@ -1,35 +1,37 @@
 import React from "react";
-import logo from "./logo.svg";
-import "./App.css";
-import Environment from "./Environment";
+import { Provider } from "react-redux";
+import GlobalStyles from "./assets/styles/globalStyle";
+import { store } from "./redux/store";
+import Boot from "./redux/boot";
+import Routes from "./router";
+import AppProvider from "./AppProvider";
+import { SecurityContextProvider } from "./contexts/security.context";
+import moment from "moment";
+import "moment/locale/es-us";
 import { ApolloProvider } from "@apollo/react-hooks";
-import client from "./ApolloClient";
-import { Customers } from "./Customers";
+import { apolloClient } from "./graphql/apollo-client";
+import Environment from "./env/env";
 
-const App: React.FC = () => (
-    <ApolloProvider client={client}>
-        <div className="App">
-            <header className="App-header">
-                <p>
-                    Edit <code>src/App.tsx</code> and save to reload.
-                </p>
-                <p>
-                    Environment is{" "}
-                    <code>{Environment.isProd ? "Prod" : "Dev"}</code>.
-                </p>
-                <a
-                    className="App-link"
-                    href="https://reactjs.org"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    Learn React
-                </a>
-                <img src={logo} className="App-logo" alt="logo" />
+console.log(process.env.REACT_APP_ENV, Environment());
+const App = () => {
+    moment.locale("es-US");
+    return (
+        <ApolloProvider client={apolloClient}>
+            <SecurityContextProvider>
+                <Provider store={store}>
+                    <AppProvider>
+                        <>
+                            <GlobalStyles />
+                            <Routes />
+                        </>
+                    </AppProvider>
+                </Provider>
+            </SecurityContextProvider>
+        </ApolloProvider>
+    );
+};
+Boot()
+    .then(() => App())
+    .catch(error => console.error(error));
 
-                <Customers></Customers>
-            </header>
-        </div>
-    </ApolloProvider>
-);
 export default App;

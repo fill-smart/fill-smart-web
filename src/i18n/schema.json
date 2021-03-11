@@ -1,0 +1,46 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$ref": "#/definitions/ILocalizedAvailableStrings",
+    "definitions": {
+        "ILocalizedAvailableStrings": {
+            "type": "object",
+            "properties": {
+                "hello": {
+                    "type": "string"
+                },
+                "productPrice": {
+                    "type": "string"
+                },
+                "noParams": {
+                    "type": "string"
+                },
+                "forgotPassword": {
+                    "type": "string"
+                },
+                "rememberMe": {
+                    "type": "string"
+                },
+                "signIn": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "hello",
+                "productPrice",
+                "noParams",
+                "forgotPassword",
+                "rememberMe",
+                "signIn",
+                "username",
+                "password"
+            ],
+            "additionalProperties": false
+        }
+    }
+}
